@@ -105,6 +105,8 @@ onAuthStateChanged(auth, async user => {
   if (user) {
     await loadUserEntry();
     try {
+      // Small delay to let App Check token initialize before Firestore calls
+      await new Promise(r => setTimeout(r, 500));
       const adminSnap = await getDoc(doc(db, 'admins', user.uid));
       isAdminUser = adminSnap.exists();
     } catch(e) {
