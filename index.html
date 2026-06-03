@@ -8,7 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
          sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -24,10 +23,6 @@ const firebaseConfig = {
 };
 const DEADLINE   = new Date('2026-06-11T20:00:00-05:00');
 const app  = initializeApp(firebaseConfig);
-initializeAppCheck(app, {
-  provider: new ReCaptchaEnterpriseProvider('6Ld-zQktAAAAAIn6gWS1ru3qanuYZngjJEE7MKw3'),
-  isTokenAutoRefreshEnabled: true
-});
 const auth = getAuth(app);
 const db   = getFirestore(app);
 
