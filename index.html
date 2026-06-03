@@ -111,6 +111,8 @@ onAuthStateChanged(auth, async user => {
     renderAuthBar();
     await loadMyGroups();
     updatePickUI();
+    // After sign-in, send to pick page if deadline hasn't passed
+    if(new Date() < DEADLINE) showPage('pick');
 
     // Auto-join group if URL parameter is present
     const urlParams = new URLSearchParams(window.location.search);
@@ -270,6 +272,8 @@ function renderLeaderboard(){
     </div>`;
   } else if(currentUser&&myRank===0){
     banner=`<div class="rank-banner no-entry">You haven't submitted yet. <a href="#" onclick="showPage('pick')">Pick your teams →</a></div>`;
+  } else if(!currentUser){
+    banner=`<div class="rank-banner no-entry">Sign in to enter the fantasy tournament. <a href="#" onclick="window.doSignIn()">Sign in →</a></div>`;
   }
 
   const activeGrp = myGroups.find(g=>g.id===activeGroupId);
@@ -1257,7 +1261,7 @@ function initApp(){
   });
 
   // Start on correct page
-  const startPage = new Date() > DEADLINE ? 'leaderboard' : 'pick';
+  const startPage = (new Date() > DEADLINE || !currentUser) ? 'leaderboard' : 'pick';
   showPage(startPage);
 }
 
