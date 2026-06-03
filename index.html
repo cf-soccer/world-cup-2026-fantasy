@@ -151,11 +151,16 @@ function renderAuthBar(){
   `;
 } else {
     const isAdmin=isAdminUser;
-    bar.innerHTML=`<div class="user-pill">
+    bar.innerHTML=`<div class="user-pill" onclick="window.toggleAvatarMenu()">
       <img src="${currentUser.photoURL||''}" onerror="this.style.display='none'" class="user-avatar">
       <span class="user-name">${currentUser.displayName||currentUser.email}</span>
       ${isAdmin?'<span class="admin-badge">ADMIN</span>':''}
-    </div> ${isAdmin ? `<button class="auth-btn admin-btn" onclick="window.openAdminGroups()">📋 All Groups</button>` : ''}
+      <div class="avatar-menu" id="avatar-menu">
+        ${isAdmin?`<button class="avatar-menu-item" onclick="window.openAdminGroups()">📋 All Groups</button>`:''}
+        <button class="avatar-menu-item" onclick="window.doSignOut()">Sign out</button>
+      </div>
+    </div>
+    ${isAdmin ? `<button class="auth-btn admin-btn" onclick="window.openAdminGroups()">📋 All Groups</button>` : ''}
     <button class="auth-btn signout" onclick="window.doSignOut()">Sign out</button>`;
   }
 }
@@ -895,6 +900,14 @@ window.toggleEmailLogin = toggleEmailLogin; window.sendMagicLink = sendMagicLink
 // ── GLOBALS ───────────────────────────────────────────────────
 window.doSignIn=signIn; window.doSignOut=signOutUser;
 window.showPage=showPage; window.openModal=openModal;
+window.toggleAvatarMenu=function(){
+  const m=document.getElementById('avatar-menu');
+  if(m) m.classList.toggle('open');
+};
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('avatar-menu');
+  if(menu && !e.target.closest('.user-pill')) menu.classList.remove('open');
+});
 window.closeModal=closeModal; window.saveEntry=saveEntry;
 window.removeTeam=name=>{selected=selected.filter(t=>t.t!==name);updatePickUI();};
 window.loadLeaderboard=loadLeaderboard;
@@ -1291,10 +1304,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .auth-btn.signin:hover{background:var(--green-light)}
 .auth-btn.signout{background:transparent;color:var(--text3);border-color:var(--border2);font-size:11px;padding:5px 10px}
 .auth-btn.signout:hover{color:var(--text);border-color:var(--text3)}
-.user-pill{display:flex;align-items:center;gap:7px}
+.user-pill{display:flex;align-items:center;gap:7px;position:relative;cursor:pointer}
 .user-avatar{width:26px;height:26px;border-radius:50%;border:1px solid var(--border2)}
 .user-name{font-size:12px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:480px){.user-name{display:none}}
+/* Hide admin btn and sign out on mobile — accessible via avatar dropdown */
+@media(max-width:600px){
+  .auth-btn.signout{display:none}
+  .auth-btn.admin-btn{display:none}
+}
+/* Avatar dropdown */
+.avatar-menu{display:none;position:absolute;top:36px;right:0;background:var(--bg2);border:1px solid var(--border);
+  border-radius:6px;padding:4px;z-index:200;min-width:140px;box-shadow:0 4px 16px rgba(0,0,0,.5)}
+.avatar-menu.open{display:block}
+.avatar-menu-item{display:block;width:100%;background:none;border:none;color:var(--text2);
+  font-family:'Archivo Narrow',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;padding:8px 12px;cursor:pointer;border-radius:4px;text-align:left}
+.avatar-menu-item:hover{background:var(--bg3);color:var(--text)}
 .admin-badge{font-size:9px;background:var(--green);color:#0F1115;padding:1px 5px;border-radius:2px;
   font-family:'Archivo Narrow',sans-serif;font-weight:800;letter-spacing:1px}
 
@@ -1473,7 +1499,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* ── GROUPS ── */
 .grp-sel-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-.grp-sel-btns{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.grp-sel-btns{display:flex;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.grp-sel-btns::-webkit-scrollbar{display:none}
 .grp-sel-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text3);
   font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;
   padding:6px 14px;border-radius:4px;cursor:pointer;transition:all .15s;text-transform:uppercase;white-space:nowrap}
@@ -1638,6 +1665,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .lb-tag.me{border-color:var(--green-dark);color:var(--green)}
 .lb-score{font-family:'Archivo Narrow',sans-serif;font-size:26px;font-weight:800;letter-spacing:0px;line-height:1}
 .lb-breakdown{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);margin-top:2px}
+@media(max-width:600px){
+  .lb-breakdown{font-size:9px}
+  .lb-score{font-size:20px}
+  .lb-max{font-size:9px}
+}
 .lb-max{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);margin-top:1px}
 .lb-max-val{color:var(--text2);font-weight:600}
 
