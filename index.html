@@ -463,6 +463,8 @@ async function loadMyGroups(){
       snap=await getDocs(query(collection(db,'groups'),where('memberUids','array-contains',currentUser.uid)));
     }
     myGroups=snap.docs.map(d=>({id:d.id,...d.data()}));
+    // Default to first group if user has one and hasn't manually switched
+    if(myGroups.length>0 && activeGroupId==='global') activeGroupId=myGroups[0].id;
     renderGroupSelector();
   }catch(e){ console.error('loadMyGroups',e); }
 }
