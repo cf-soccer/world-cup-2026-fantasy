@@ -602,6 +602,18 @@ window.adminAddUserFromModal = async function() {
   }
 };
 
+window.adminDeleteEntry = async function() {
+  if (!currentAdminSelectedUid) return;
+  const name = document.getElementById('admin-user-name').textContent;
+  if (!confirm(`Delete ${name}'s entry? This cannot be undone.`)) return;
+  try {
+    await deleteDoc(doc(db, 'entries', currentAdminSelectedUid));
+    showToast('Entry deleted');
+    document.getElementById('admin-user-modal').classList.remove('open');
+    loadLeaderboard();
+  } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+};
+
 window.adminRemoveUserFromModal = async function() {
   const groupId = document.getElementById('admin-group-select').value;
   if (!groupId || !currentAdminSelectedUid) return;
@@ -1997,8 +2009,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
     </select>
     <div class="modal-btns">
       <button class="modal-btn cancel" onclick="document.getElementById('admin-user-modal').classList.remove('open')">Cancel</button>
-      <button class="modal-btn cancel" style="color:var(--red); border-color:var(--red);" onclick="window.adminRemoveUserFromModal()">Remove</button>
-      <button class="modal-btn confirm" onclick="window.adminAddUserFromModal()">Add</button>
+      <button class="modal-btn cancel" style="color:var(--red); border-color:var(--red);" onclick="window.adminRemoveUserFromModal()">Remove from Group</button>
+      <button class="modal-btn confirm" onclick="window.adminAddUserFromModal()">Add to Group</button>
+    </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <button class="modal-btn cancel" style="width:100%;color:var(--red);border-color:var(--red);" onclick="window.adminDeleteEntry()">🗑 Delete Entry</button>
     </div>
   </div>
 </div>
