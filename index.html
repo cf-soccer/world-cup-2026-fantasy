@@ -8,7 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+         getRedirectResult, signOut, onAuthStateChanged,
          sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, orderBy, serverTimestamp, updateDoc, arrayUnion, arrayRemove, where, deleteDoc }
@@ -25,6 +26,8 @@ const DEADLINE   = new Date('2026-06-11T20:00:00-05:00');
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
+// Handle redirect result from mobile Google sign-in
+getRedirectResult(auth).catch(e => console.warn('Redirect result:', e.message));
 
 // ── FLAGS (emoji) ─────────────────────────────────────────────
 const FLAGS = {
@@ -130,7 +133,13 @@ onAuthStateChanged(auth, async user => {
     loadLeaderboard();
   }
 });
-async function signIn(){ try{ await signInWithPopup(auth,new GoogleAuthProvider()); }catch(e){ showToast('Sign-in failed','error'); } }
+async function signIn(){
+  try{
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if(isMobile){ await signInWithRedirect(auth, new GoogleAuthProvider()); }
+    else{ await signInWithPopup(auth, new GoogleAuthProvider()); }
+  }catch(e){ showToast('Sign-in failed','error'); }
+}
 async function signOutUser(){ await signOut(auth); userEntry=null; selected=[]; updatePickUI(); renderAuthBar(); }
 
 function renderAuthBar(){
