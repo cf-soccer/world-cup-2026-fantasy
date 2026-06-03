@@ -22,7 +22,6 @@ const firebaseConfig = {
   messagingSenderId: "420262418676",
   appId:             "1:420262418676:web:b13f4f65b174d67797a6a1"
 };
-const ADMIN_UID  = "wkRKPE9AtHgfuymHlv5IzQDrIc93";
 const DEADLINE   = new Date('2026-06-11T20:00:00-05:00');
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -73,7 +72,7 @@ const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
 
 // ── STATE ─────────────────────────────────────────────────────
 let currentUser=null, userEntry=null, selected=[], activeFilter='ALL', activeSort='ranking', allEntries=[];
-let isDeadlinePassed=false;
+let isDeadlinePassed=false, isAdminUser=false;
 let myGroups=[], activeGroupId='global';
 
 // ── AUTH ──────────────────────────────────────────────────────
@@ -101,6 +100,14 @@ onAuthStateChanged(auth, async user => {
   
   if (user) {
     await loadUserEntry();
+    try {
+      const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+      isAdminUser = adminSnap.exists();
+    } catch(e) {
+      console.warn('Admin check failed for uid:', user.uid, e.message);
+      isAdminUser = false;
+    }
+    renderAuthBar();
     await loadMyGroups();
     updatePickUI();
 
@@ -142,7 +149,7 @@ function renderAuthBar(){
     </div>
   `;
 } else {
-    const isAdmin=currentUser.uid===ADMIN_UID;
+    const isAdmin=isAdminUser;
     bar.innerHTML=`<div class="user-pill">
       <img src="${currentUser.photoURL||''}" onerror="this.style.display='none'" class="user-avatar">
       <span class="user-name">${currentUser.displayName||currentUser.email}</span>
@@ -174,7 +181,7 @@ async function saveEntry(){
   
   const tbInput = document.getElementById('tiebreaker-input');
   const tiebreakerGoals = tbInput ? parseInt(tbInput.value) || 0 : 0;
-  const entryNameInput = document.getElementById('entry-name-input');
+  const entryNameInput = document.getElementById('modal-entry-name') || document.getElementById('entry-name-input');
   const entryName = entryNameInput?.value?.trim() || currentUser.displayName || currentUser.email;
 
   closeModal();
@@ -261,7 +268,7 @@ function renderLeaderboard(){
 
   const activeGrp = myGroups.find(g=>g.id===activeGroupId);
   const isManager = activeGrp && activeGrp.managerUid===currentUser?.uid;
-  const isAdmin = currentUser?.uid===ADMIN_UID;
+  const isAdmin = isAdminUser;
   const globalPicksVisible = isDeadlinePassed || isAdmin || isManager;
 
   const rows=allEntries.map((e,i)=>{
@@ -281,7 +288,7 @@ function renderLeaderboard(){
     
     const uniqueBadge = isUniqueCombo ? `<span class="you-tag" style="background:var(--gold); color:#000;">✨ UNIQUE</span>` : '';
     const youTag = isMe ? ' <span class="you-tag">YOU</span>' : '';
-    const adminBtn = (currentUser?.uid === ADMIN_UID) ? 
+    const adminBtn = isAdminUser ? 
       `<button class="admin-btn-sm" style="margin-left:8px;" onclick="window.openAdminUserModal('${e.uid}', '${e.name.replace(/'/g, "\\'")}')">⚙️ Admin</button>` : '';
 
     return `<tr class="${isMe?'my-row':''}">
@@ -421,7 +428,7 @@ async function loadMyGroups(){
   if(!currentUser){ myGroups=[]; renderGroupSelector(); return; }
   try{
     let snap;
-    if(currentUser.uid===ADMIN_UID){
+    if(isAdminUser){
       // Admin sees ALL groups
       snap=await getDocs(collection(db,'groups'));
     } else {
@@ -584,7 +591,7 @@ window.adminRemoveUserFromModal = async function() {
 };
 
 async function openAdminGroups() {
-  if (!currentUser || currentUser.uid !== ADMIN_UID) { showToast('Access denied', 'error'); return; }
+  if (!currentUser || !isAdminUser) { showToast('Access denied', 'error'); return; }
   const modal = document.getElementById('admin-groups-modal');
   const list = document.getElementById('admin-groups-list');
   list.innerHTML = '<div class="trn-loading">Loading all groups...</div>';
@@ -756,7 +763,12 @@ function updatePickUI(){
 // ── MODAL ─────────────────────────────────────────────────────
 function openModal(){
   const existingGoals = userEntry?.tiebreakerGoals || 0;
-  document.getElementById('modal-picks').innerHTML=selected.map(t=>`
+  const entryNameVal = document.getElementById('entry-name-input')?.value?.trim() || currentUser?.displayName || currentUser?.email || '';
+  document.getElementById('modal-picks').innerHTML=`
+    <div style="margin-bottom:16px; background:var(--bg3); padding:12px; border-radius:6px; border:1px solid var(--border);">
+      <label style="font-size:12px; color:var(--text2); display:block; margin-bottom:6px; font-family:'Archivo Narrow',sans-serif; text-transform:uppercase; letter-spacing:1px;">Entry Name</label>
+      <input type="text" id="modal-entry-name" class="name-input" style="width:100%; font-size:15px;" maxlength="40" value="${entryNameVal}" placeholder="Defaults to your account name">
+    </div>` + selected.map(t=>`
     <div class="modal-pick-row">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:24px">${flag(t.t)}</span>
@@ -773,7 +785,13 @@ function openModal(){
   document.getElementById('modal-action-label').textContent=userEntry?'Update Entry':'Lock It In ⚽';
   document.getElementById('modal').classList.add('open');
 }
-function closeModal(){document.getElementById('modal').classList.remove('open');}
+function closeModal(){
+  // Sync modal entry name back to pick page field
+  const modalInput = document.getElementById('modal-entry-name');
+  const pickInput = document.getElementById('entry-name-input');
+  if(modalInput && pickInput && modalInput.value.trim()) pickInput.value = modalInput.value.trim();
+  document.getElementById('modal').classList.remove('open');
+}
 
 // ── FILTERS ───────────────────────────────────────────────────
 function buildFilters(filterId,isRules=false){
