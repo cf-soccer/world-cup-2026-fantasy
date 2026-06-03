@@ -14,7 +14,14 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, orderBy, serverTimestamp, updateDoc, arrayUnion, arrayRemove, where, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js';
+const firebaseConfig = {
+  apiKey:            "AIzaSyCL2lIdVcAKepeP0-3SosAJ5ogrbYA60Ck",
+  authDomain:        "wc2026-fantasy-381da.firebaseapp.com",
+  projectId:         "wc2026-fantasy-381da",
+  storageBucket:     "wc2026-fantasy-381da.firebasestorage.app",
+  messagingSenderId: "420262418676",
+  appId:             "1:420262418676:web:b13f4f65b174d67797a6a1"
+};
 const DEADLINE   = new Date('2026-06-11T20:00:00-05:00');
 const app  = initializeApp(firebaseConfig);
 initializeAppCheck(app, {
