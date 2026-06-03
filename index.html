@@ -13,15 +13,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, orderBy, serverTimestamp, updateDoc, arrayUnion, arrayRemove, where, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
-const firebaseConfig = {
-  apiKey:            "AIzaSyCL2lIdVcAKepeP0-3SosAJ5ogrbYA60Ck",
-  authDomain:        "wc2026-fantasy-381da.firebaseapp.com",
-  projectId:         "wc2026-fantasy-381da",
-  storageBucket:     "wc2026-fantasy-381da.firebasestorage.app",
-  messagingSenderId: "420262418676",
-  appId:             "1:420262418676:web:b13f4f65b174d67797a6a1"
-};
+import { firebaseConfig } from './firebase-config.js';
 const DEADLINE   = new Date('2026-06-11T20:00:00-05:00');
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -296,7 +288,8 @@ function renderLeaderboard(){
       <td><div class="lb-player">
         ${e.photoURL?`<img src="${e.photoURL}" class="lb-avatar" onerror="this.style.display='none'">`:''}
         <div>
-          <div class="lb-name">${e.name}${youTag}${uniqueBadge}${adminBtn}</div>
+          <div class="lb-name">${e.entryName||e.name}${youTag}${uniqueBadge}${adminBtn}</div>
+          ${e.entryName&&e.entryName!==e.name?`<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">${e.name}</div>`:''}
           <div class="lb-teams">${tags}</div>
         </div>
       </div></td>

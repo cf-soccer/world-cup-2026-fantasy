@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Old versions
+index-*.html
+
+# Firebase config (contains API keys)
+firebase-config.js
+
+# Claude Code
+.claude/
