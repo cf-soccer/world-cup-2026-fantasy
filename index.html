@@ -135,10 +135,15 @@ onAuthStateChanged(auth, async user => {
 });
 async function signIn(){
   try{
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if(isMobile){ await signInWithRedirect(auth, new GoogleAuthProvider()); }
-    else{ await signInWithPopup(auth, new GoogleAuthProvider()); }
-  }catch(e){ showToast('Sign-in failed','error'); }
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch(e){
+    if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'){
+      // Fall back to redirect if popup is blocked
+      await signInWithRedirect(auth, new GoogleAuthProvider());
+    } else {
+      showToast('Sign-in failed: '+e.code,'error');
+    }
+  }
 }
 async function signOutUser(){ await signOut(auth); userEntry=null; selected=[]; updatePickUI(); renderAuthBar(); }
 
