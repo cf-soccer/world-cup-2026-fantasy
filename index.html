@@ -769,6 +769,8 @@ function updatePickUI(){
   const pct=Math.min(100,(used/BUDGET)*100);
   const fpEl=document.getElementById('fp-used');
   if(fpEl){fpEl.textContent=used;fpEl.className='budget-used '+(used>BUDGET?'over':used>BUDGET*.85?'warn':'ok');}
+  const mobFpEl=document.getElementById('mob-fp-used');
+  if(mobFpEl){mobFpEl.textContent=used;mobFpEl.className='budget-used '+(used>BUDGET?'over':used>BUDGET*.85?'warn':'ok');}
   const bar=document.getElementById('budget-bar');
   if(bar){bar.style.width=pct+'%';bar.style.background=used>BUDGET?'var(--red)':used>BUDGET*.85?'var(--gold)':'var(--green)';}
   const list=document.getElementById('picks-list');
@@ -798,6 +800,8 @@ function updatePickUI(){
   if(isDeadlinePassed){if(btn){btn.disabled=true;btn.textContent='Submissions Closed';}if(msg){msg.className='validation-msg warn';msg.textContent='Deadline passed';}return;}
   if(!currentUser){if(btn)btn.disabled=true;if(msg){msg.className='validation-msg';msg.textContent='Sign in to submit';}renderGrid();return;}
   if(btn)btn.disabled=!valid;
+  const mobBtn=document.getElementById('mob-submit-btn');
+  if(mobBtn)mobBtn.disabled=!valid;
   if(msg){
     if(selected.length<4){msg.className='validation-msg';msg.textContent=`Select ${4-selected.length} more team${4-selected.length!==1?'s':''}`;}
     else if(grps.size<4){msg.className='validation-msg error';msg.textContent='Teams must be from 4 different groups';}
@@ -1454,24 +1458,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .pick-layout{display:grid;grid-template-columns:1fr 290px;gap:16px;align-items:start}
 @media(max-width:780px){.pick-layout{grid-template-columns:1fr}}
 
+/* ── MOBILE PICK BAR ── */
+.mob-pick-bar{display:none}
+@media(max-width:780px){
+  .mob-pick-bar{display:flex;align-items:center;gap:12px;
+    background:var(--card);border:1px solid var(--border2);border-radius:8px;
+    padding:10px 16px;margin-bottom:16px}
+  .budget-panel{display:none}
+  #page-pick.active{padding-bottom:0}
+}
+
 /* ── BUDGET PANEL ── */
 .budget-panel{background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:18px;position:sticky;top:76px}
 @media(max-width:780px){
   .pick-layout{grid-template-columns:1fr}
-  .budget-panel{position:fixed;bottom:60px;left:0;right:0;z-index:50;border-radius:0;
-    border-left:none;border-right:none;border-bottom:none;
-    padding:12px 20px;
-    display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
-  .budget-title{display:none}
-  .budget-row{flex-shrink:0}
-  .budget-bar-wrap{display:none}
-  .picks-list{display:none}
-  .budget-of{display:none}
-  .budget-used{font-size:32px !important}
-  .mob-fp-label{display:block !important;font-size:10px;color:var(--text3);font-family:'Archivo Narrow',sans-serif;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
-  .submit-btn{flex:1;padding:10px;font-size:16px}
-  .validation-msg{display:none}
-  #page-pick.active{padding-bottom:130px}
 }
 .mob-fp-label{display:none}
 .budget-title{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:13px;
@@ -1864,6 +1864,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <!-- PICK PAGE -->
 <div id="page-pick" class="page active">
   <div class="pick-layout">
+    <!-- Mobile-only top bar -->
+    <div class="mob-pick-bar" id="mob-pick-bar">
+      <div>
+        <div class="budget-used ok" id="mob-fp-used">0</div>
+        <div style="font-size:10px;color:var(--text3);font-family:'Archivo Narrow',sans-serif;letter-spacing:1px;text-transform:uppercase">FP Used</div>
+      </div>
+      <button class="submit-btn" id="mob-submit-btn" disabled onclick="openModal()" style="flex:1;padding:10px;font-size:15px;max-width:220px">Submit Entry</button>
+    </div>
     <div>
       <div class="section-head">Name Your Entry</div>
       <div class="entry-name-wrap">
