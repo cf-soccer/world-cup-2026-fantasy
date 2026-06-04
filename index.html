@@ -1457,12 +1457,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* ── BUDGET PANEL ── */
 .budget-panel{background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:18px;position:sticky;top:76px}
 @media(max-width:780px){
-  .pick-layout{display:flex;flex-direction:column}
-  .budget-panel{position:sticky;bottom:60px;border-radius:0;
+  .pick-layout{grid-template-columns:1fr}
+  .budget-panel{position:fixed;bottom:60px;left:0;right:0;z-index:50;border-radius:0;
     border-left:none;border-right:none;border-bottom:none;
-    margin:0 -20px;padding:12px 20px;
-    display:flex;align-items:center;gap:12px;flex-wrap:nowrap;order:2}
-  .pick-layout > div:first-child{order:1}
+    padding:12px 20px;
+    display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
   .budget-title{display:none}
   .budget-row{flex-shrink:0}
   .budget-bar-wrap{display:none}
@@ -1472,7 +1471,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   .mob-fp-label{display:block !important;font-size:10px;color:var(--text3);font-family:'Archivo Narrow',sans-serif;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
   .submit-btn{flex:1;padding:10px;font-size:16px}
   .validation-msg{display:none}
-  #page-pick.active{padding-bottom:0}
+  #page-pick.active{padding-bottom:130px}
 }
 .mob-fp-label{display:none}
 .budget-title{font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:13px;
@@ -1870,7 +1869,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="entry-name-wrap">
         <input class="entry-name-input" id="entry-name-input" type="text"
           placeholder="e.g. Team Chaos, Going for Mbappe..." maxlength="40"
-          autocomplete="off">
+          autocomplete="off" autocorrect="off" autocapitalize="off"
+          onfocus="this.removeAttribute('readonly')" readonly>
         <div class="entry-name-hint">Optional — defaults to your account name</div>
       </div>
       <div class="section-head">Choose Your 4 Teams</div>
