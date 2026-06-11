@@ -363,7 +363,13 @@ function calcMaxScore(picks) {
 }
 
 function calcBracketAwareMax(picks, matches) {
-  if (!matches || matches.length === 0) return calcMaxScore(picks);
+  if (!matches || matches.length === 0) {
+    // Fallback: return static max without recursing
+    const groupPts = picks.length * 9;
+    const koPts = 2 * 20 + 2 * 15;
+    const bonusPts = 20 + 3;
+    return groupPts + koPts + bonusPts;
+  }
   const normPicks = picks.map(norm);
   let maxGroupPts = 0;
   normPicks.forEach(pick => {
