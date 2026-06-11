@@ -117,26 +117,89 @@ function calcScore(picks, matches) {
   return { score, breakdown: { group, knockout, bonus } };
 }
 
+// ── ESPN fetcher (primary) ────────────────────────────────────
+async function fetchESPN() {
+  // Fetch all dates since tournament start
+  const url = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=100&dates=20260611-20260719';
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`ESPN API error ${resp.status}`);
+  const data = await resp.json();
+  const matches = [];
+  for (const event of (data.events || [])) {
+    const comp = event.competitions?.[0];
+    if (!comp) continue;
+    const state = comp.status?.type?.state;
+    if (state !== 'post') continue; // only finished matches
+    const home = comp.competitors?.find(c => c.homeAway === 'home');
+    const away = comp.competitors?.find(c => c.homeAway === 'away');
+    if (!home || !away) continue;
+    const g1 = parseInt(home.score);
+    const g2 = parseInt(away.score);
+    if (isNaN(g1) || isNaN(g2)) continue;
+    // Determine stage from notes or season slug
+    const notes = comp.notes?.[0]?.headline || '';
+    const slug = event.season?.slug || 'group-stage';
+    let stage = 'group';
+    if (slug.includes('round-of-32') || notes.includes('Round of 32')) stage = 'r32';
+    else if (slug.includes('round-of-16') || notes.includes('Round of 16')) stage = 'r16';
+    else if (slug.includes('quarter') || notes.includes('Quarterfinal')) stage = 'qf';
+    else if (slug.includes('semi') || notes.includes('Semifinal')) stage = 'sf';
+    else if (slug.includes('third') || notes.includes('Third Place')) stage = 'third';
+    else if (slug.includes('final') || notes.includes('Final')) stage = 'final';
+    matches.push({
+      stage,
+      homeTeam: { name: home.team.displayName },
+      awayTeam: { name: away.team.displayName },
+      score: { fullTime: { home: g1, away: g2 }, penalties: { home: null, away: null } },
+    });
+  }
+  return matches;
+}
+
+// ── football-data.org fetcher (fallback) ──────────────────────
+async function fetchFootballData(apiKey) {
+  const resp = await fetch(
+    'https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED&season=2026',
+    { headers: { 'X-Auth-Token': apiKey } }
+  );
+  if (!resp.ok) throw new Error(`football-data.org error ${resp.status}`);
+  const data = await resp.json();
+  return (data.matches || [])
+    .filter(m => m.score?.fullTime?.home !== null)
+    .map(m => ({
+      stage: STAGE_MAP[m.stage] || 'group',
+      homeTeam: { name: m.homeTeam?.name },
+      awayTeam: { name: m.awayTeam?.name },
+      score: {
+        fullTime: { home: m.score.fullTime.home, away: m.score.fullTime.away },
+        penalties: { home: m.score.penalties?.home ?? null, away: m.score.penalties?.away ?? null },
+      },
+    }));
+}
+
 // ── Main ──────────────────────────────────────────────────────
 async function main() {
   console.log('🌍 WC2026 Score Sync — starting...');
   console.log(`⏰ ${new Date().toISOString()}`);
 
-  // 1. Fetch finished matches from football-data.org
-  console.log('\n📡 Fetching matches from football-data.org...');
-  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
-  if (!apiKey) throw new Error('Missing FOOTBALL_DATA_API_KEY secret');
+  // 1. Fetch finished matches — ESPN primary, football-data.org fallback
+  let matches = [];
+  let source = '';
+  try {
+    console.log('\n📡 Trying ESPN API (primary)...');
+    matches = await fetchESPN();
+    source = 'ESPN';
+    console.log(`✅ ESPN: Got ${matches.length} finished matches`);
+  } catch (e) {
+    console.warn(`⚠️  ESPN failed: ${e.message} — falling back to football-data.org`);
+    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+    if (!apiKey) throw new Error('Missing FOOTBALL_DATA_API_KEY secret');
+    matches = await fetchFootballData(apiKey);
+    source = 'football-data.org';
+    console.log(`✅ football-data.org: Got ${matches.length} finished matches`);
+  }
 
-  const resp = await fetch(
-    'https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED&season=2026',
-    { headers: { 'X-Auth-Token': apiKey } }
-  );
-  if (!resp.ok) throw new Error(`API error ${resp.status}: ${resp.statusText}`);
-  const data = await resp.json();
-  const matches = data.matches || [];
-  console.log(`✅ Got ${matches.length} finished matches`);
-  // Debug: print raw team names from API
-  matches.forEach(m => console.log(`  Match: "${m.homeTeam?.name}" vs "${m.awayTeam?.name}" [${m.stage}] ${m.score?.fullTime?.home}-${m.score?.fullTime?.away}`));
+  matches.forEach(m => console.log(`  [${source}] Match: "${m.homeTeam?.name}" vs "${m.awayTeam?.name}" [${m.stage}] ${m.score?.fullTime?.home}-${m.score?.fullTime?.away}`));
 
   if (matches.length === 0) {
     console.log('ℹ️  No finished matches yet — nothing to update');
@@ -145,10 +208,7 @@ async function main() {
 
   // Log match summary
   const byStage = {};
-  matches.forEach(m => {
-    const s = STAGE_MAP[m.stage] || m.stage;
-    byStage[s] = (byStage[s] || 0) + 1;
-  });
+  matches.forEach(m => { byStage[m.stage] = (byStage[m.stage] || 0) + 1; });
   console.log('📊 Matches by stage:', JSON.stringify(byStage));
 
   // 2. Load all player entries from Firestore
