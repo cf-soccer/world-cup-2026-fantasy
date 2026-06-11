@@ -135,6 +135,8 @@ async function main() {
   const data = await resp.json();
   const matches = data.matches || [];
   console.log(`✅ Got ${matches.length} finished matches`);
+  // Debug: print raw team names from API
+  matches.forEach(m => console.log(`  Match: "${m.homeTeam?.name}" vs "${m.awayTeam?.name}" [${m.stage}] ${m.score?.fullTime?.home}-${m.score?.fullTime?.away}`));
 
   if (matches.length === 0) {
     console.log('ℹ️  No finished matches yet — nothing to update');
