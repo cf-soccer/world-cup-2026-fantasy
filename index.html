@@ -733,7 +733,7 @@ async function loadLockedTeams(){
     // Fetch all scheduled/completed events through the new deadline
     const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260613');
     const d = await r.json();
-    const cutoff = DEADLINE; // lock any team with a game before picks close
+    const cutoff = new Date(); // lock any team whose game has already kicked off
     for (const event of (d.events||[])) {
       const kickoff = new Date(event.date);
       if (kickoff >= cutoff) continue; // game is after deadline — not locked
