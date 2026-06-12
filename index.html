@@ -22,7 +22,7 @@ const firebaseConfig = {
   messagingSenderId: "420262418676",
   appId:             "1:420262418676:web:b13f4f65b174d67797a6a1"
 };
-const DEADLINE   = new Date('2026-06-11T11:45:00-07:00');
+const DEADLINE   = new Date('2026-06-13T10:00:00-07:00'); // Extended: late signups until Sat morning
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
@@ -75,6 +75,7 @@ const GROUPS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
 // ── STATE ─────────────────────────────────────────────────────
 let currentUser=null, userEntry=null, selected=[], activeFilter='ALL', activeSort='ranking', allEntries=[];
 let isDeadlinePassed=false, isAdminUser=false;
+let lockedTeams=new Set(); // teams that have already played — locked from new picks
 let myGroups=[], activeGroupId='global';
 
 // ── AUTH ──────────────────────────────────────────────────────
@@ -315,7 +316,7 @@ function renderLeaderboard(){
 
     const tags = showPicks
       ? (e.picks||[]).map(p=>`<span class="lb-tag${isMe?' me':''}">${flag(p)} ${p}</span>`).join('')
-      : `<span class="lb-tag locked">🔒 Hidden until Jun 11</span>`;
+      : `<span class="lb-tag locked">🔒 Hidden until Jun 13</span>`;
     const maxPts = calcMaxScore(e.picks||[]);
     
     const uniqueBadge = isUniqueCombo ? `<span class="you-tag" style="background:var(--gold); color:#000;">✨ UNIQUE</span>` : '';
@@ -725,6 +726,29 @@ function calcScore(picks,matches){
   return{score,breakdown:{group,knockout,bonus}};
 }
 
+// ── LOCKED TEAMS (teams that have played before deadline) ─────
+async function loadLockedTeams(){
+  try {
+    // Fetch all scheduled/completed events through the new deadline
+    const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260613');
+    const d = await r.json();
+    const cutoff = DEADLINE; // lock any team with a game before picks close
+    for (const event of (d.events||[])) {
+      const kickoff = new Date(event.date);
+      if (kickoff >= cutoff) continue; // game is after deadline — not locked
+      const comp = event.competitions?.[0];
+      for (const competitor of (comp?.competitors||[])) {
+        const name = norm(competitor.team?.displayName||'');
+        if (name) lockedTeams.add(name);
+      }
+    }
+    console.log('🔒 Locked teams (played before deadline):', [...lockedTeams].join(', '));
+  } catch(e) {
+    console.warn('Could not load team schedule for locking:', e.message);
+  }
+  renderGrid();
+}
+
 // ── PICK UI ───────────────────────────────────────────────────
 function renderGrid(){
   const c=document.getElementById('teams-grid'); if(!c) return;
@@ -737,25 +761,27 @@ function renderGrid(){
     const isSel=!!selected.find(s=>s.t===team.t);
     const usedFP=selected.reduce((s,t)=>s+t.fp,0);
     const locked=isDeadlinePassed||!currentUser;
-    const dis=locked||(isSel?false:(
+    const isPlayed=!isDeadlinePassed && lockedTeams.has(team.t); // grayed out — already played
+    const dis=locked||isPlayed||(isSel?false:(
       !!selected.find(s=>s.g===team.g&&s.t!==team.t)||
       (!isSel&&usedFP+team.fp>BUDGET)||
       (selected.length>=4&&!isSel)
     ));
     const card=document.createElement('div');
-    card.className=`team-card${isSel?' selected':''}${dis?' disabled':''}`;
+    card.className=`team-card${isSel?' selected':''}${dis?' disabled':''}${isPlayed?' played':''}`;
     card.innerHTML=`
       <div class="card-flag">${flag(team.t)}</div>
       <div class="card-info">
         <div class="team-name">${team.t}</div>
         <div class="team-group">Group ${team.g}</div>
+        ${isPlayed?'<div class="played-badge">⚽ Played</div>':''}
       </div>
       <div class="card-right">
         <div class="team-fp">${team.fp}</div>
         <div class="team-fp-lbl">FP</div>
         <div class="check-icon">✓</div>
       </div>`;
-    if(!locked&&(isSel||!dis)) card.onclick=()=>toggleTeam(team);
+    if(!locked&&!isPlayed&&(isSel||!dis)) card.onclick=()=>toggleTeam(team);
     c.appendChild(card);
   });
 }
@@ -1313,6 +1339,7 @@ function initApp(){
   buildFilters('group-filter',false);
   buildFilters('rules-group-filter',true);
   renderGrid(); renderRulesGrid(); updatePickUI();
+  loadLockedTeams(); // async — re-renders grid when done
 
   // Deadline countdown
   function tick(){
@@ -1554,6 +1581,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .team-card:not(.disabled):not(.static):hover::before,.team-card.selected::before{background:var(--green)}
 .team-card.selected{border-color:var(--green);background:var(--card2);}
 .team-card.disabled{opacity:.3;cursor:not-allowed}
+.team-card.played{opacity:.55;cursor:not-allowed}
+.played-badge{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.3px}
 .team-card.static{cursor:default}
 .card-flag{font-size:26px;flex-shrink:0;line-height:1}
 @media(max-width:480px){.card-flag{font-size:22px}}
