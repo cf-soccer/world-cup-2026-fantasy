@@ -31,7 +31,9 @@ const NAME_ALIASES = {
   'Turkey':                 'Türkiye',
   'Bosnia and Herzegovina': 'Bosnia',
   'Bosnia Herzegovina':     'Bosnia',
+  'Bosnia-Herzegovina':     'Bosnia',
   'Congo DR':               'DR Congo',
+  'United States':          'USA',
 };
 const norm = n => NAME_ALIASES[n] || n;
 
