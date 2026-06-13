@@ -1,9 +1,9 @@
 name: Sync World Cup Scores
 
 on:
-  # Run every 2 hours during tournament (June 11 - July 19 2026)
+  # Run every 30 minutes during tournament (June 11 - July 19 2026)
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '*/30 * * * *'
   # Allow manual trigger from GitHub Actions tab
   workflow_dispatch:
 
