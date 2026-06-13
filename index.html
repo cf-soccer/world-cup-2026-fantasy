@@ -239,8 +239,28 @@ async function loadLeaderboard(){
   if(btn){btn.textContent='↻ Loading...';btn.disabled=true;}
   c.innerHTML='<div class="empty-state"><div class="big">⏳</div><p>Loading...</p></div>';
   try{
-    const snap=await getDocs(query(collection(db,'entries'),orderBy('score','desc')));
-    let entries=snap.docs.map(d=>d.data());
+    // Fetch entries + live match data in parallel
+    const [snap, liveMatches] = await Promise.all([
+      getDocs(query(collection(db,'entries'))),
+      fetchLiveMatches().catch(e=>{ console.warn('ESPN fetch failed, using cached scores:', e.message); return null; })
+    ]);
+
+    // If we got live matches, recalculate scores client-side and cache for tournament tab
+    if(liveMatches){ cachedMatches = liveMatches; }
+    const matchesForCalc = liveMatches || cachedMatches;
+
+    let entries = snap.docs.map(d=>{
+      const e = d.data();
+      if(matchesForCalc.length > 0){
+        const {score, breakdown} = calcScore(e.picks||[], matchesForCalc);
+        return {...e, score, breakdown};
+      }
+      return e;
+    });
+
+    // Sort by live score descending
+    entries.sort((a,b)=>b.score-a.score);
+
     if(activeGroupId!=='global'){
       const grp=myGroups.find(g=>g.id===activeGroupId);
       if(grp) entries=entries.filter(e=>grp.memberUids.includes(e.uid));
@@ -1015,39 +1035,44 @@ const TRN_GROUPS = {
 
 const TRN_ROUNDS = ['Round of 32','Round of 16','Quarter-finals','Semi-finals','Final'];
 
+// ── Shared ESPN match fetcher ─────────────────────────────────
+async function fetchLiveMatches(){
+  const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719');
+  if(!r.ok) throw new Error(`ESPN ${r.status}`);
+  const d = await r.json();
+  const matches = [];
+  for(const event of (d.events||[])){
+    const comp = event.competitions?.[0];
+    if(!comp) continue;
+    const state = comp.status?.type?.state;
+    const home = comp.competitors?.find(c=>c.homeAway==='home');
+    const away = comp.competitors?.find(c=>c.homeAway==='away');
+    if(!home||!away) continue;
+    const slug = event.season?.slug||'';
+    let stage = 'GROUP_STAGE';
+    if(slug.includes('round-of-32')) stage='ROUND_OF_32';
+    else if(slug.includes('round-of-16')) stage='ROUND_OF_16';
+    else if(slug.includes('quarter')) stage='QUARTER_FINALS';
+    else if(slug.includes('semi')) stage='SEMI_FINALS';
+    else if(slug.includes('third')) stage='THIRD_PLACE';
+    else if(slug.includes('final')) stage='FINAL';
+    const g1 = state==='post' ? parseInt(home.score) : null;
+    const g2 = state==='post' ? parseInt(away.score) : null;
+    matches.push({
+      stage,
+      status: state==='post'?'FINISHED':state==='in'?'IN_PLAY':'SCHEDULED',
+      homeTeam:{name: home.team.displayName},
+      awayTeam:{name: away.team.displayName},
+      score:{fullTime:{home: isNaN(g1)?null:g1, away: isNaN(g2)?null:g2}},
+    });
+  }
+  return matches;
+}
+
 async function loadTournament(){
   let matches = [];
-  try{
-    const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719');
-    if(r.ok){
-      const d = await r.json();
-      for(const event of (d.events||[])){
-        const comp = event.competitions?.[0];
-        if(!comp) continue;
-        const state = comp.status?.type?.state;
-        const home = comp.competitors?.find(c=>c.homeAway==='home');
-        const away = comp.competitors?.find(c=>c.homeAway==='away');
-        if(!home||!away) continue;
-        const slug = event.season?.slug||'';
-        let stage = 'GROUP_STAGE';
-        if(slug.includes('round-of-32')) stage='ROUND_OF_32';
-        else if(slug.includes('round-of-16')) stage='ROUND_OF_16';
-        else if(slug.includes('quarter')) stage='QUARTER_FINALS';
-        else if(slug.includes('semi')) stage='SEMI_FINALS';
-        else if(slug.includes('third')) stage='THIRD_PLACE';
-        else if(slug.includes('final')) stage='FINAL';
-        const g1 = state==='post' ? parseInt(home.score) : null;
-        const g2 = state==='post' ? parseInt(away.score) : null;
-        matches.push({
-          stage,
-          status: state==='post'?'FINISHED':state==='in'?'IN_PLAY':'SCHEDULED',
-          homeTeam:{name: home.team.displayName},
-          awayTeam:{name: away.team.displayName},
-          score:{fullTime:{home: isNaN(g1)?null:g1, away: isNaN(g2)?null:g2}},
-        });
-      }
-    }
-  }catch(e){ console.warn('ESPN tournament load failed:', e.message); }
+  try{ matches = await fetchLiveMatches(); }
+  catch(e){ console.warn('ESPN tournament load failed:', e.message); }
   cachedMatches = matches;
   renderGroupStage(matches);
   renderBracket(matches);
