@@ -22,7 +22,7 @@ const firebaseConfig = {
   messagingSenderId: "420262418676",
   appId:             "1:420262418676:web:b13f4f65b174d67797a6a1"
 };
-const DEADLINE   = new Date('2026-06-11T11:45:00-07:00'); // Closed
+const DEADLINE   = new Date('2026-06-14T23:44:00Z'); // Extended 5 min
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
@@ -753,7 +753,7 @@ async function loadLockedTeams(){
     // Fetch all scheduled/completed events through the new deadline
     const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260613');
     const d = await r.json();
-    const cutoff = new Date(); // lock any team whose game has already kicked off
+    const cutoff = new Date(0); // no locks — all teams available
     for (const event of (d.events||[])) {
       const kickoff = new Date(event.date);
       if (kickoff >= cutoff) continue; // game is after deadline — not locked
