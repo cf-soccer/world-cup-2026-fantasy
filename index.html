@@ -1221,7 +1221,26 @@ function renderBracket(matches){
     const gms = matches.filter(m => m.stage==='GROUP_STAGE' && TRN_GROUPS[g]?.some(t => norm(t)===norm(m.homeTeam?.name||'')));
     return gms.filter(m=>m.status==='FINISHED').length >= 6;
   }
+
+  // Build a map of slot label → team name from ESPN's R32 bracket data.
+  // ESPN replaces "Group E Winner" with "Germany" once they've clinched.
+  const espnSeeds = {};
+  const isSlotDesc = n => n.startsWith('Group ') || n.startsWith('Third Place');
+  matches.filter(m=>m.stage==='ROUND_OF_32').forEach(m=>{
+    const h = m.homeTeam?.name||'', a = m.awayTeam?.name||'';
+    const check = (realName, slotDesc) => {
+      if(isSlotDesc(realName)||!isSlotDesc(slotDesc)) return;
+      const teamNorm = norm(realName);
+      const teamEntry = TEAMS.find(t=>norm(t.t)===teamNorm);
+      if(!teamEntry) return;
+      if(slotDesc.includes('Winner')) espnSeeds[`W-${teamEntry.g}`] = teamNorm;
+      else if(slotDesc.includes('2nd Place')) espnSeeds[`R-${teamEntry.g}`] = teamNorm;
+    };
+    check(h, a); check(a, h);
+  });
+
   function resolveSeed(label) {
+    if(espnSeeds[label]) return espnSeeds[label]; // ESPN already knows
     if (label.startsWith('W-')) { const g=label.slice(2); return groupComplete(g)?standings[g]?.[0]?.name||null:null; }
     if (label.startsWith('R-')) { const g=label.slice(2); return groupComplete(g)?standings[g]?.[1]?.name||null:null; }
     return null;
