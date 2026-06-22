@@ -1190,22 +1190,27 @@ function buildGroupStandings(matches){
 function renderBracket(matches){
   const wrap = document.getElementById('bracket-wrap');
   wrap.innerHTML = '';
+  // Left half → SF1 (Dallas Jul 14). Pairs [0,1],[2,3],[4,5],[6,7] each feed one R16 match.
+  // R16 pairings: [0,1]→R16#1(Houston), [2,3]→R16#2(Philadelphia), [4,5]→R16#5(Dallas), [6,7]→R16#6(Seattle)
+  // QF: R16#1 vs R16#2 = QF1(Boston), R16#5 vs R16#6 = QF2(LA)
   const LEFT_R32 = [
-    {home:'W-E', away:'3rd-A/B/C/D/F', date:'Jun 29', venue:'Boston'}, {home:'W-I', away:'3rd-C/D/F/G/H', date:'Jun 30', venue:'New York'},
-    {home:'R-E', away:'R-I',            date:'Jun 30', venue:'Dallas'}, {home:'W-A', away:'3rd-C/E/F/H/I', date:'Jun 29', venue:'Mexico City'},
-    {home:'W-F', away:'R-C',            date:'Jun 29', venue:'Monterrey'}, {home:'W-C', away:'R-F',            date:'Jun 29', venue:'Houston'},
-    {home:'W-K', away:'R-L',            date:'Jul 2',  venue:'Toronto'}, {home:'W-H', away:'R-J',            date:'Jul 2',  venue:'Los Angeles'},
+    {home:'R-A', away:'R-B',           date:'Jun 28', venue:'Los Angeles'}, {home:'W-E', away:'3rd-A/B/C/D/F', date:'Jun 29', venue:'Boston'},
+    {home:'W-C', away:'R-F',           date:'Jun 29', venue:'Houston'},     {home:'R-E', away:'R-I',            date:'Jun 30', venue:'Dallas'},
+    {home:'W-H', away:'R-J',           date:'Jul 2',  venue:'Los Angeles'}, {home:'R-K', away:'R-L',            date:'Jul 2',  venue:'Toronto'},
+    {home:'W-G', away:'3rd-A/E/H/I/J', date:'Jul 1',  venue:'Seattle'},    {home:'W-D', away:'3rd-B/E/F/I/J', date:'Jul 2',  venue:'SF Bay Area'},
   ];
+  // Right half → SF2 (Atlanta Jul 15). Pairs feed R16#3(NJ), R16#4(Mexico City), R16#7(Atlanta), R16#8(Vancouver)
+  // QF: R16#3 vs R16#4 = QF3(Miami), R16#7 vs R16#8 = QF4(Kansas City)
   const RIGHT_R32 = [
-    {home:'W-L', away:'3rd-E/H/I/J/K', date:'Jul 1',  venue:'Atlanta'}, {home:'W-G', away:'3rd-A/E/H/I/J', date:'Jul 1',  venue:'Seattle'},
-    {home:'W-D', away:'3rd-B/E/F/I/J', date:'Jul 1',  venue:'SF Bay Area'}, {home:'W-B', away:'3rd-E/F/G/I/J', date:'Jul 2',  venue:'Vancouver'},
-    {home:'W-J', away:'R-H',            date:'Jul 3',  venue:'Miami'}, {home:'R-A', away:'3rd-A/B/D/E/F', date:'Jul 2',  venue:'Kansas City'},
-    {home:'R-B', away:'3rd-A/B/C/D/G', date:'Jul 2',  venue:'Vancouver'}, {home:'R-D', away:'R-G',            date:'Jul 3',  venue:'Dallas'},
+    {home:'W-F', away:'R-C',           date:'Jun 30', venue:'Monterrey'},   {home:'W-I', away:'3rd-C/D/F/G/H', date:'Jun 30', venue:'New York'},
+    {home:'W-A', away:'3rd-C/E/F/H/I', date:'Jul 1',  venue:'Mexico City'},{home:'W-L', away:'3rd-E/H/I/J/K', date:'Jul 1',  venue:'Atlanta'},
+    {home:'R-D', away:'R-G',           date:'Jul 3',  venue:'Dallas'},      {home:'W-K', away:'3rd-D/E/I/J/L', date:'Jul 4',  venue:'Kansas City'},
+    {home:'W-B', away:'3rd-E/F/G/I/J', date:'Jul 3',  venue:'Vancouver'},  {home:'W-J', away:'R-H',            date:'Jul 3',  venue:'Miami'},
   ];
 
   const KO_DATES = {
-    r16:  [{date:'Jul 4',venue:'Philadelphia'},{date:'Jul 4',venue:'Seattle'},{date:'Jul 5',venue:'Houston'},{date:'Jul 5',venue:'New York'},{date:'Jul 6',venue:'Dallas'},{date:'Jul 6',venue:'Atlanta'},{date:'Jul 7',venue:'Vancouver'},{date:'Jul 7',venue:'Vancouver'}],
-    qf:   [{date:'Jul 9',venue:'Boston'},{date:'Jul 9',venue:'Los Angeles'},{date:'Jul 10',venue:'Houston'},{date:'Jul 10',venue:'Kansas City'}],
+    r16:  [{date:'Jul 4',venue:'Houston'},{date:'Jul 4',venue:'Philadelphia'},{date:'Jul 6',venue:'Dallas'},{date:'Jul 7',venue:'Seattle'},{date:'Jul 5',venue:'New York'},{date:'Jul 6',venue:'Mexico City'},{date:'Jul 7',venue:'Atlanta'},{date:'Jul 7',venue:'Vancouver'}],
+    qf:   [{date:'Jul 9',venue:'Boston'},{date:'Jul 10',venue:'Los Angeles'},{date:'Jul 11',venue:'Miami'},{date:'Jul 12',venue:'Kansas City'}],
     sf:   [{date:'Jul 14',venue:'Dallas'},{date:'Jul 15',venue:'Atlanta'}],
     third:{date:'Jul 18',venue:'Miami'},
     final:{date:'Jul 19',venue:'MetLife, NJ'},
