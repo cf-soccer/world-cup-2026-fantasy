@@ -258,8 +258,21 @@ async function loadLeaderboard(){
       return e;
     });
 
-    // Sort by live score descending
-    entries.sort((a,b)=>b.score-a.score);
+    // Total goals scored so far — used for tiebreaker goal guess
+    const totalGoals = matchesForCalc.reduce((sum,m)=>{
+      const g1=m.score?.fullTime?.home??null, g2=m.score?.fullTime?.away??null;
+      return (g1!==null&&g2!==null&&m.status==='FINISHED') ? sum+g1+g2 : sum;
+    }, 0);
+
+    // Sort: score desc → max potential desc → closest tiebreaker guess
+    entries.sort((a,b)=>{
+      if(b.score!==a.score) return b.score-a.score;
+      const maxA=calcMaxScore(a.picks||[]), maxB=calcMaxScore(b.picks||[]);
+      if(maxB!==maxA) return maxB-maxA;
+      const diffA=Math.abs((a.tiebreakerGoals||0)-totalGoals);
+      const diffB=Math.abs((b.tiebreakerGoals||0)-totalGoals);
+      return diffA-diffB;
+    });
 
     if(activeGroupId!=='global'){
       const grp=myGroups.find(g=>g.id===activeGroupId);
