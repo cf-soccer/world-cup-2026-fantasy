@@ -1236,33 +1236,31 @@ function renderBracket(matches){
   }
 
   // Build a map of slot label → team name from ESPN's R32 bracket data.
-  // ESPN replaces "Group E Winner" with "Germany" once they've clinched.
+  // ESPN replaces "Group E Winner" with "Germany" once a team has clinched.
   const espnSeeds = {};
-  // Maps the 3rd-place group combo ESPN uses → which bracket slot the real team fills
-  const thirdPlaceToSlot = {
-    'A/B/C/D/F':'W-E','C/D/F/G/H':'W-I','C/E/F/H/I':'W-A',
-    'E/H/I/J/K':'W-L','A/E/H/I/J':'W-G','B/E/F/I/J':'W-D',
-    'E/F/G/I/J':'W-B','D/E/I/J/L':'W-K',
-  };
   const isSlotDesc = n => n.startsWith('Group ') || n.startsWith('Third Place');
+  // Normalize ESPN slot description → our bracket label (e.g. "Group H 2nd Place" → "R-H")
+  const toSlotLabel = desc => {
+    if(desc.startsWith('Third Place Group ')) return '3rd-'+desc.replace('Third Place Group ','');
+    const m = desc.match(/^Group ([A-L]) (Winner|2nd Place)$/);
+    if(m) return (m[2]==='Winner'?'W-':'R-')+m[1];
+    return null;
+  };
+  const allBracket = [...LEFT_R32, ...RIGHT_R32];
   matches.filter(m=>m.stage==='ROUND_OF_32').forEach(m=>{
-    const h = m.homeTeam?.name||'', a = m.awayTeam?.name||'';
-    const check = (realName, slotDesc) => {
-      if(isSlotDesc(realName)||!isSlotDesc(slotDesc)) return;
-      const teamNorm = norm(realName);
-      const teamEntry = TEAMS.find(t=>norm(t.t)===teamNorm);
-      if(!teamEntry) return;
-      if(slotDesc.startsWith('Third Place Group ')) {
-        const combo = slotDesc.replace('Third Place Group ','');
-        const slot = thirdPlaceToSlot[combo];
-        if(slot) espnSeeds[slot] = teamNorm;
-      } else if(slotDesc.includes('Winner')) {
-        espnSeeds[`W-${teamEntry.g}`] = teamNorm;
-      } else if(slotDesc.includes('2nd Place')) {
-        espnSeeds[`R-${teamEntry.g}`] = teamNorm;
-      }
+    const h=m.homeTeam?.name||'', a=m.awayTeam?.name||'';
+    const check=(realName, opponentDesc)=>{
+      if(isSlotDesc(realName)||!isSlotDesc(opponentDesc)) return;
+      const teamNorm=norm(realName);
+      // Find which bracket entry has the opponent's slot, then the real team fills the other slot
+      const oppSlot=toSlotLabel(opponentDesc);
+      if(!oppSlot) return;
+      const entry=allBracket.find(e=>e.home===oppSlot||e.away===oppSlot);
+      if(!entry) return;
+      const realSlot=entry.home===oppSlot?entry.away:entry.home;
+      if(realSlot.startsWith('W-')||realSlot.startsWith('R-')) espnSeeds[realSlot]=teamNorm;
     };
-    check(h, a); check(a, h);
+    check(h,a); check(a,h);
   });
 
   function resolveSeed(label) {
