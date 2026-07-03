@@ -1081,7 +1081,7 @@ async function fetchLiveMatches(){
     else if(slug.includes('round-of-16')) stage='ROUND_OF_16';
     else if(slug.includes('quarter')) stage='QUARTER_FINALS';
     else if(slug.includes('semi')) stage='SEMI_FINALS';
-    else if(slug.includes('third')) stage='THIRD_PLACE';
+    else if(slug.includes('third')||slug.includes('3rd-place')) stage='THIRD_PLACE';
     else if(slug.includes('final')) stage='FINAL';
     const g1 = state==='post' ? parseInt(home.score) : null;
     const g2 = state==='post' ? parseInt(away.score) : null;
