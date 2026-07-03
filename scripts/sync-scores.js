@@ -160,7 +160,7 @@ async function fetchESPN() {
     else if (slug.includes('round-of-16') || notes.includes('Round of 16')) stage = 'r16';
     else if (slug.includes('quarter') || notes.includes('Quarterfinal')) stage = 'qf';
     else if (slug.includes('semi') || notes.includes('Semifinal')) stage = 'sf';
-    else if (slug.includes('third') || notes.includes('Third Place')) stage = 'third';
+    else if (slug.includes('third') || slug.includes('3rd-place') || notes.includes('Third Place')) stage = 'third';
     else if (slug.includes('final') || notes.includes('Final')) stage = 'final';
     let penalties = { home: null, away: null };
     if (g1 === g2 && stage !== 'group') {
