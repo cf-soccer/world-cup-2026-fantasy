@@ -1049,6 +1049,20 @@ const TRN_GROUPS = {
 const TRN_ROUNDS = ['Round of 32','Round of 16','Quarter-finals','Semi-finals','Final'];
 
 // ── Shared ESPN match fetcher ─────────────────────────────────
+// Extract penalty shootout score from ESPN's note text, e.g.
+// "Paraguay advance 4-3 on penalties" → {home, away} PK scores.
+function parsePenaltyScore(comp, homeName, awayName){
+  const note = comp.notes?.find(n=>/on penalties/i.test(n.text||n.headline||''));
+  const text = note?.text || note?.headline || '';
+  const m = text.match(/^(.+?) advance (\d+)-(\d+) on penalties/i);
+  if(!m) return null;
+  const [, winnerName, wScore, lScore] = m;
+  const winnerIsHome = winnerName.trim() === homeName;
+  return winnerIsHome
+    ? {home: parseInt(wScore), away: parseInt(lScore)}
+    : {home: parseInt(lScore), away: parseInt(wScore)};
+}
+
 async function fetchLiveMatches(){
   const r = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719');
   if(!r.ok) throw new Error(`ESPN ${r.status}`);
@@ -1071,12 +1085,20 @@ async function fetchLiveMatches(){
     else if(slug.includes('final')) stage='FINAL';
     const g1 = state==='post' ? parseInt(home.score) : null;
     const g2 = state==='post' ? parseInt(away.score) : null;
+    let penalties = {home:null, away:null};
+    if(state==='post' && !isNaN(g1) && !isNaN(g2) && g1===g2){
+      // Draw after regulation in a knockout match — check for a shootout.
+      const parsed = parsePenaltyScore(comp, home.team.displayName, away.team.displayName);
+      if(parsed) penalties = parsed;
+      else if(home.winner) penalties = {home:1, away:0};
+      else if(away.winner) penalties = {home:0, away:1};
+    }
     matches.push({
       stage,
       status: state==='post'?'FINISHED':state==='in'?'IN_PLAY':'SCHEDULED',
       homeTeam:{name: home.team.displayName},
       awayTeam:{name: away.team.displayName},
-      score:{fullTime:{home: isNaN(g1)?null:g1, away: isNaN(g2)?null:g2}},
+      score:{fullTime:{home: isNaN(g1)?null:g1, away: isNaN(g2)?null:g2}, penalties},
     });
   }
   return matches;
@@ -1235,11 +1257,9 @@ function renderBracket(matches){
     return gms.filter(m=>m.status==='FINISHED').length >= 6;
   }
 
-  // Build a map of slot label → team name from ESPN's R32 bracket data.
-  // ESPN replaces "Group E Winner" with "Germany" once a team has clinched.
+  // Build a map of slot label → team name from standings + ESPN R32 bracket data.
   const espnSeeds = {};
   const isSlotDesc = n => n.startsWith('Group ') || n.startsWith('Third Place');
-  // Normalize ESPN slot description → our bracket label (e.g. "Group H 2nd Place" → "R-H")
   const toSlotLabel = desc => {
     if(desc.startsWith('Third Place Group ')) return '3rd-'+desc.replace('Third Place Group ','');
     const m = desc.match(/^Group ([A-L]) (Winner|2nd Place)$/);
@@ -1247,20 +1267,38 @@ function renderBracket(matches){
     return null;
   };
   const allBracket = [...LEFT_R32, ...RIGHT_R32];
+
+  // Phase 1: populate W- and R- slots from group standings (enables Phase 2 matching)
+  allBracket.forEach(entry => {
+    [entry.home, entry.away].forEach(slot => {
+      if(slot.startsWith('W-')) { const g=slot.slice(2); if(groupComplete(g)&&standings[g]?.[0]) espnSeeds[slot]=norm(standings[g][0].name); }
+      if(slot.startsWith('R-')) { const g=slot.slice(2); if(groupComplete(g)&&standings[g]?.[1]) espnSeeds[slot]=norm(standings[g][1].name); }
+    });
+  });
+
+  // Phase 2: resolve 3rd-place slots from ESPN R32 data
+  // Handles both "real team vs slot description" (mid-tournament) and
+  // "both real teams" (after group stage completes, ESPN resolves all slots)
   matches.filter(m=>m.stage==='ROUND_OF_32').forEach(m=>{
     const h=m.homeTeam?.name||'', a=m.awayTeam?.name||'';
-    const check=(realName, opponentDesc)=>{
-      if(isSlotDesc(realName)||!isSlotDesc(opponentDesc)) return;
-      const teamNorm=norm(realName);
-      // Find which bracket entry has the opponent's slot, then the real team fills the other slot
-      const oppSlot=toSlotLabel(opponentDesc);
-      if(!oppSlot) return;
-      const entry=allBracket.find(e=>e.home===oppSlot||e.away===oppSlot);
-      if(!entry) return;
-      const realSlot=entry.home===oppSlot?entry.away:entry.home;
-      if(realSlot.startsWith('W-')||realSlot.startsWith('R-')) espnSeeds[realSlot]=teamNorm;
-    };
-    check(h,a); check(a,h);
+    const hIsSlot=isSlotDesc(h), aIsSlot=isSlotDesc(a);
+    if(!hIsSlot&&aIsSlot) {
+      const oppSlot=toSlotLabel(a);
+      if(oppSlot) { const entry=allBracket.find(e=>e.home===oppSlot||e.away===oppSlot); if(entry) { const realSlot=entry.home===oppSlot?entry.away:entry.home; espnSeeds[realSlot]=norm(h); } }
+    } else if(hIsSlot&&!aIsSlot) {
+      const oppSlot=toSlotLabel(h);
+      if(oppSlot) { const entry=allBracket.find(e=>e.home===oppSlot||e.away===oppSlot); if(entry) { const realSlot=entry.home===oppSlot?entry.away:entry.home; espnSeeds[realSlot]=norm(a); } }
+    } else if(!hIsSlot&&!aIsSlot) {
+      // Both are real teams: match one to a Phase 1 slot, assign the other to the 3rd- slot
+      const hNorm=norm(h), aNorm=norm(a);
+      allBracket.forEach(entry=>{
+        const hs=entry.home, as=entry.away;
+        if(espnSeeds[hs]===hNorm&&as.startsWith('3rd-')&&!espnSeeds[as]) espnSeeds[as]=aNorm;
+        else if(espnSeeds[hs]===aNorm&&as.startsWith('3rd-')&&!espnSeeds[as]) espnSeeds[as]=hNorm;
+        else if(espnSeeds[as]===hNorm&&hs.startsWith('3rd-')&&!espnSeeds[hs]) espnSeeds[hs]=aNorm;
+        else if(espnSeeds[as]===aNorm&&hs.startsWith('3rd-')&&!espnSeeds[hs]) espnSeeds[hs]=hNorm;
+      });
+    }
   });
 
   function resolveSeed(label) {

@@ -119,6 +119,20 @@ function calcScore(picks, matches) {
   return { score, breakdown: { group, knockout, bonus } };
 }
 
+// Extract penalty shootout score from ESPN's note text, e.g.
+// "Paraguay advance 4-3 on penalties" → {home, away} PK scores.
+function parsePenaltyScore(comp, homeName, awayName) {
+  const note = comp.notes?.find(n => /on penalties/i.test(n.text || n.headline || ''));
+  const text = note?.text || note?.headline || '';
+  const m = text.match(/^(.+?) advance (\d+)-(\d+) on penalties/i);
+  if (!m) return null;
+  const [, winnerName, wScore, lScore] = m;
+  const winnerIsHome = winnerName.trim() === homeName;
+  return winnerIsHome
+    ? { home: parseInt(wScore), away: parseInt(lScore) }
+    : { home: parseInt(lScore), away: parseInt(wScore) };
+}
+
 // ── ESPN fetcher (primary) ────────────────────────────────────
 async function fetchESPN() {
   // Fetch all dates since tournament start
@@ -148,11 +162,19 @@ async function fetchESPN() {
     else if (slug.includes('semi') || notes.includes('Semifinal')) stage = 'sf';
     else if (slug.includes('third') || notes.includes('Third Place')) stage = 'third';
     else if (slug.includes('final') || notes.includes('Final')) stage = 'final';
+    let penalties = { home: null, away: null };
+    if (g1 === g2 && stage !== 'group') {
+      // Draw after regulation in a knockout match — check for a shootout.
+      const parsed = parsePenaltyScore(comp, home.team.displayName, away.team.displayName);
+      if (parsed) penalties = parsed;
+      else if (home.winner) penalties = { home: 1, away: 0 };
+      else if (away.winner) penalties = { home: 0, away: 1 };
+    }
     matches.push({
       stage,
       homeTeam: { name: home.team.displayName },
       awayTeam: { name: away.team.displayName },
-      score: { fullTime: { home: g1, away: g2 }, penalties: { home: null, away: null } },
+      score: { fullTime: { home: g1, away: g2 }, penalties },
     });
   }
   return matches;
