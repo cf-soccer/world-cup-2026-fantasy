@@ -473,8 +473,26 @@ function calcBracketAwareMax(picks, matches) {
     return { maxRound, eliminated };
   }
 
+  // A pick that never reaches the knockout stage (finishes outside the top 2
+  // of its group) is never marked eliminated above, since it never loses a
+  // KO match — it just has no bracket position. Detect that case explicitly
+  // so it isn't credited with phantom future knockout rounds.
+  function eliminatedInGroupStage(pick) {
+    const g = Object.keys(TRN_GROUPS).find(g => TRN_GROUPS[g].some(t => norm(t) === pick));
+    if (!g) return false;
+    const groupMatches = matches.filter(m => m.stage === 'GROUP_STAGE' &&
+      TRN_GROUPS[g].some(t => norm(t) === norm(m.homeTeam?.name||'')));
+    if (groupMatches.filter(m => m.status === 'FINISHED').length < 6) return false;
+    const top2 = (standings[g]||[]).slice(0, 2).map(t => norm(t.name));
+    return !top2.includes(pick);
+  }
+
   let maxKOPts = 0; let maxBonusPts = 0;
-  const pickPositions = normPicks.map(p => ({ pick: p, pos: getPickBracketPos(p), status: getTeamKOStatus(p) }));
+  const pickPositions = normPicks.map(p => {
+    const status = getTeamKOStatus(p);
+    if (!status.eliminated && status.maxRound === -1 && eliminatedInGroupStage(p)) status.eliminated = true;
+    return { pick: p, pos: getPickBracketPos(p), status };
+  });
   const ROUNDS_REMAINING_FROM = (stage) => { const remaining = { 'r32': 4, 'r16': 3, 'qf': 2, 'sf': 1, 'final': 0 }; return remaining[stage] ?? 4; };
 
   pickPositions.forEach(({pick, pos, status}) => {
