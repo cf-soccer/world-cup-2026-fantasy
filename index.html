@@ -439,11 +439,11 @@ function calcBracketAwareMax(picks, matches) {
   function getPickBracketPos(pick) {
     for (let i = 0; i < LEFT_SEEDS.length; i++) {
       const resolved = resolveLabel(LEFT_SEEDS[i]);
-      if (resolved && norm(resolved) === pick) return { half: 'left', quarter: Math.floor(i/4) };
+      if (resolved && norm(resolved) === pick) return { half: 'left', idx: i };
     }
     for (let i = 0; i < RIGHT_SEEDS.length; i++) {
       const resolved = resolveLabel(RIGHT_SEEDS[i]);
-      if (resolved && norm(resolved) === pick) return { half: 'right', quarter: Math.floor(i/4) };
+      if (resolved && norm(resolved) === pick) return { half: 'right', idx: i };
     }
     return null;
   }
@@ -493,21 +493,31 @@ function calcBracketAwareMax(picks, matches) {
     if (!status.eliminated && status.maxRound === -1 && eliminatedInGroupStage(p)) status.eliminated = true;
     return { pick: p, pos: getPickBracketPos(p), status };
   });
-  const ROUNDS_REMAINING_FROM = (stage) => { const remaining = { 'r32': 4, 'r16': 3, 'qf': 2, 'sf': 1, 'final': 0 }; return remaining[stage] ?? 4; };
-
-  pickPositions.forEach(({pick, pos, status}) => {
-    if (status.eliminated) return;
-    const earnedKO = (status.maxRound + 1) * 5;
-    maxKOPts += earnedKO;
-    const currentStage = status.maxRound >= 0 ? ['r32','r16','qf','sf','final'][status.maxRound + 1] || 'done' : 'r32';
-    if (currentStage === 'done') return;
-    const sameHalfPicks = pickPositions.filter(p => p.pick !== pick && p.pos?.half === pos?.half && !p.status.eliminated);
-    if (!pos) { maxKOPts += 3 * 5; }
-    else if (sameHalfPicks.length === 0) { maxKOPts += ROUNDS_REMAINING_FROM(currentStage) * 5; }
-    else { const maxRounds = Math.min(ROUNDS_REMAINING_FROM(currentStage), 3); maxKOPts += maxRounds * 5; }
-  });
 
   const activePicks = pickPositions.filter(p => !p.status.eliminated);
+  activePicks.forEach(({status}) => { maxKOPts += (status.maxRound + 1) * 5; });
+
+  // Two of the entry's own picks in the same bracket half can't both reach
+  // the final — only one survives to face the other, so for each remaining
+  // round we count distinct bracket subtrees with a surviving pick, not the
+  // number of picks. (idx is this pick's slot, 0-15, within its half; two
+  // picks meet as soon as their slots fall in the same subtree at that round.)
+  const STAGE_GROUP_SIZE = { r32: 2, r16: 4, qf: 8, sf: 16 };
+  const STAGE_ORDER = ['r32','r16','qf','sf'];
+  ['left','right'].forEach(half => {
+    const halfPicks = activePicks.filter(p => p.pos && p.pos.half === half);
+    if (halfPicks.length === 0) return;
+    const nextStageIdx = halfPicks[0].status.maxRound + 1; // all alive picks share the same real-world round
+    for (let s = nextStageIdx; s < STAGE_ORDER.length; s++) {
+      const groupSize = STAGE_GROUP_SIZE[STAGE_ORDER[s]];
+      const groups = new Set(halfPicks.map(p => Math.floor(p.pos.idx / groupSize)));
+      maxKOPts += 5 * groups.size;
+    }
+  });
+  // No resolved bracket slot yet (group stage still undecided) — keep the
+  // conservative flat estimate used before a bracket exists.
+  activePicks.filter(p => !p.pos).forEach(() => { maxKOPts += 3 * 5; });
+
   if (activePicks.length > 0) maxBonusPts += 20;
   if (activePicks.length > 1) maxBonusPts += 3;
   return maxGroupPts + maxKOPts + maxBonusPts;
@@ -1340,7 +1350,12 @@ function renderBracket(matches){
     const ht=norm(m.homeTeam?.name||''),at=norm(m.awayTeam?.name||'');
     let winner=null;
     if(g1>g2)winner=ht; else if(g2>g1)winner=at; else if(p1!==null)winner=p1>p2?ht:at;
-    return {winner, sH:`${g1}${p1!==null?`(${p1})`:''}`, sA:`${g2}${p2!==null?`(${p2})`:''}` };
+    // g1/g2 are the real match's home/away scores, but t1/t2 (the caller's
+    // display order) may not match — reorder so sH/sA line up with t1/t2.
+    const t1IsHome = norm(t1)===ht;
+    const s1=`${t1IsHome?g1:g2}${(t1IsHome?p1:p2)!==null?`(${t1IsHome?p1:p2})`:''}`;
+    const s2=`${t1IsHome?g2:g1}${(t1IsHome?p2:p1)!==null?`(${t1IsHome?p2:p1})`:''}`;
+    return {winner, sH:s1, sA:s2 };
   }
 
   function matchCard(homeLabel, awayLabel, dateStr, venue, stageKey) {
