@@ -522,8 +522,39 @@ function calcBracketAwareMax(picks, matches) {
   // conservative flat estimate used before a bracket exists.
   activePicks.filter(p => !p.pos).forEach(() => { maxKOPts += 3 * 5; });
 
-  if (activePicks.length > 0) maxBonusPts += 20;
-  if (activePicks.length > 1) maxBonusPts += 3;
+  // Bonus: once the final and/or third-place match is actually scheduled,
+  // check its real participants instead of just counting alive picks — an
+  // entry with both finalists only has 20 points of winner upside (only one
+  // can win), not 20+20, and an entry whose pick already won a decided match
+  // keeps that bonus even though the pick is now "eliminated" (done playing).
+  function matchWinner(m) {
+    if (!m) return null;
+    const g1 = m.score?.fullTime?.home ?? null, g2 = m.score?.fullTime?.away ?? null;
+    if (g1 === null || g2 === null) return null;
+    const t1 = norm(m.homeTeam?.name||''), t2 = norm(m.awayTeam?.name||'');
+    if (g1 > g2) return t1;
+    if (g2 > g1) return t2;
+    const p1 = m.score?.penalties?.home ?? null, p2 = m.score?.penalties?.away ?? null;
+    if (p1 !== null && p2 !== null) return p1 > p2 ? t1 : t2;
+    return null;
+  }
+  const finalMatch = matches.find(m => m.stage === 'FINAL');
+  const thirdMatch = matches.find(m => m.stage === 'THIRD_PLACE');
+  const realWinner = matchWinner(finalMatch);
+  const realThird = matchWinner(thirdMatch);
+
+  if (realWinner && normPicks.includes(realWinner)) maxBonusPts += 20;
+  if (realThird && normPicks.includes(realThird)) maxBonusPts += 3;
+  if (!realWinner) {
+    const finalists = finalMatch ? [norm(finalMatch.homeTeam?.name||''), norm(finalMatch.awayTeam?.name||'')] : null;
+    const canWin = finalists ? normPicks.some(p => finalists.includes(p)) : activePicks.length > 0;
+    if (canWin) maxBonusPts += 20;
+  }
+  if (!realThird) {
+    const thirdContenders = thirdMatch ? [norm(thirdMatch.homeTeam?.name||''), norm(thirdMatch.awayTeam?.name||'')] : null;
+    const canThird = thirdContenders ? normPicks.some(p => thirdContenders.includes(p)) : activePicks.length > 1;
+    if (canThird) maxBonusPts += 3;
+  }
   return maxGroupPts + maxKOPts + maxBonusPts;
 }
 
