@@ -494,8 +494,12 @@ function calcBracketAwareMax(picks, matches) {
     return { pick: p, pos: getPickBracketPos(p), status };
   });
 
+  // Points already secured count toward Max regardless of what happens
+  // later — a pick that's since been eliminated still keeps the rounds it
+  // already won. Only *future* upside depends on still being alive.
+  pickPositions.forEach(({status}) => { maxKOPts += (status.maxRound + 1) * 5; });
+
   const activePicks = pickPositions.filter(p => !p.status.eliminated);
-  activePicks.forEach(({status}) => { maxKOPts += (status.maxRound + 1) * 5; });
 
   // Two of the entry's own picks in the same bracket half can't both reach
   // the final — only one survives to face the other, so for each remaining
